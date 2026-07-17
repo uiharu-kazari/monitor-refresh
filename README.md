@@ -1,5 +1,7 @@
 # MonitorRefresh
 
+> A one-click macOS menu bar tool to revive a black or half-dark external monitor — no cable replugging.
+
 **English** | [简体中文](README.zh-CN.md)
 
 A tiny macOS menu bar app that revives a stuck, black, or half-dark external monitor **without touching any cables**. One click sends a DDC power-cycle command to the monitor over the video cable — the software equivalent of pressing its power button.
