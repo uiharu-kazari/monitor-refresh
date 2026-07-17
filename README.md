@@ -4,6 +4,8 @@
 
 A tiny macOS menu bar app that revives a stuck, black, or half-dark external monitor **without touching any cables**. One click sends a DDC power-cycle command to the monitor over the video cable — the software equivalent of pressing its power button.
 
+**No dependencies.** The app talks DDC/CI to your monitors directly through the system's IOKit (the same mechanism used by [m1ddc](https://github.com/waydabber/m1ddc) and [MonitorControl](https://github.com/MonitorControl/MonitorControl)).
+
 ## Why this exists
 
 Some external monitors occasionally lose part of their picture until you physically unplug and replug them. This is especially common with **dual-panel stacked portable monitors** (e.g. EHOMEWEI X-series, JSAUX FlipGo and similar), where the internal controller that splits one video stream across two panels gets stuck and one half of the screen goes black or dim.
@@ -14,11 +16,25 @@ This app puts that fix one click away in your menu bar. It was built for an EHOM
 
 ## Requirements
 
-- macOS 13 or later (Apple Silicon and Intel both fine)
-- [BetterDisplay](https://github.com/waydabber/BetterDisplay) installed in `/Applications` — the free version is sufficient. MonitorRefresh uses BetterDisplay's CLI to talk DDC to your monitors.
-- Xcode Command Line Tools to build (`xcode-select --install`)
+- An **Apple Silicon** Mac (M1 or newer)
+- macOS 13 or later
+- That's it — no drivers, no helper apps.
 
 ## Install
+
+### Option A: download the DMG
+
+Grab the latest `MonitorRefresh-x.y.z.dmg` from [Releases](https://github.com/uiharu-kazari/monitor-refresh/releases), open it, and drag **MonitorRefresh** into Applications.
+
+Because this is a free open-source app without an Apple Developer certificate, macOS will block the first launch. Approve it once via **System Settings → Privacy & Security → "Open Anyway"**, or clear the quarantine flag in Terminal:
+
+```sh
+xattr -cr /Applications/MonitorRefresh.app
+```
+
+### Option B: build from source
+
+Requires Xcode Command Line Tools (`xcode-select --install`). Apps you build yourself are not quarantined — no security prompt.
 
 ```sh
 git clone https://github.com/uiharu-kazari/monitor-refresh.git
@@ -27,7 +43,9 @@ cd monitor-refresh
 open ~/Applications/MonitorRefresh.app
 ```
 
-To start it automatically at login: System Settings → General → Login Items → add **MonitorRefresh**, or:
+### Start at login
+
+System Settings → General → Login Items → add **MonitorRefresh**, or:
 
 ```sh
 osascript -e 'tell application "System Events" to make new login item at end with properties {path:"'$HOME'/Applications/MonitorRefresh.app", hidden:true}'
@@ -35,40 +53,44 @@ osascript -e 'tell application "System Events" to make new login item at end wit
 
 ## Usage
 
-Click the display icon in the menu bar:
+Click the display-with-refresh-arrow icon in the menu bar:
 
 - **Power Cycle "\<monitor\>"** — one entry per connected monitor. Sends DDC off, waits 6 seconds, sends DDC on. The monitor blanks briefly and comes back with its controller reset. This is the main fix.
-- **Advanced →**
-  - **Disconnect & Reconnect "\<monitor\>"** — software unplug/replug: macOS fully removes the display and re-adds it (a real hot-plug event). Note: this may rearrange windows, and display disconnection may require BetterDisplay Pro.
-  - **Sleep & Wake All Displays** — forces every display through a sleep/wake handshake.
+- **Sleep & Wake All Displays** — forces every display through a sleep/wake handshake (a gentler alternative worth trying for other kinds of display glitches).
 - The icon turns into an hourglass while a fix is running.
 
 The display list is rebuilt every time the menu opens, so newly connected monitors appear automatically.
 
-## Just want the shell script?
+## Command line
 
-If you don't need the menu bar app, everything the app does is also available as a standalone script: [`scripts/monitor-refresh.sh`](scripts/monitor-refresh.sh). It only needs zsh and BetterDisplay — no compiling.
+The app binary doubles as a CLI — handy for Raycast/Alfred scripts, `ssh`, or cron:
 
 ```sh
-./scripts/monitor-refresh.sh --list             # list your connected monitor names
-./scripts/monitor-refresh.sh "LINK"             # DDC power-cycle that monitor (the main fix)
-./scripts/monitor-refresh.sh "LINK" --reconnect # software unplug/replug instead
-./scripts/monitor-refresh.sh --hard             # sleep all displays 5s, then wake
+APP=~/Applications/MonitorRefresh.app/Contents/MacOS/MonitorRefresh
+$APP --list                  # list connected monitor names
+$APP --power-cycle "LINK"    # DDC power-cycle that monitor
 ```
 
-Use `--list` first to find your monitor's exact name, then pass that name to power-cycle it. The power-cycle sends DDC off, waits 6 seconds, and sends DDC on — the monitor blanks briefly and comes back with its internal controller reset. Handy for keyboard-launcher tools (Raycast, Alfred), `ssh`, or cron.
+[`scripts/monitor-refresh.sh`](scripts/monitor-refresh.sh) wraps this with a shorter syntax and adds `--hard` (sleep/wake all displays):
+
+```sh
+./scripts/monitor-refresh.sh --list
+./scripts/monitor-refresh.sh "LINK"
+./scripts/monitor-refresh.sh --hard
+```
 
 ## How it works
 
-- Monitor enumeration and DDC commands go through the BetterDisplay CLI (`BetterDisplay get -identifiers`, `BetterDisplay set -name=... -ddc -vcp=powerMode -value=4/1`).
-- DDC through DP→HDMI converters and docks is flaky, so every DDC command is retried up to 5 times.
-- The app itself is ~200 lines of Swift (`Sources/main.swift`), compiled directly with `swiftc` — no Xcode project, no dependencies, menu-bar only (no Dock icon).
+- Displays are discovered by walking the IORegistry: each display's framebuffer node (which carries the product name) is paired with its `DCPAVServiceProxy` DDC endpoint.
+- The power-cycle is a DDC/CI *Set VCP Feature* write of `powerMode` (VCP `0xD6`) — value 4 (off), then 1 (on) — sent over I2C via the private `IOAVService` API. This is the same approach proven by [m1ddc](https://github.com/waydabber/m1ddc) and [MonitorControl](https://github.com/MonitorControl/MonitorControl).
+- DDC through DP→HDMI converters and docks is flaky, so every DDC write is retried up to 5 times.
+- The whole app is ~250 lines of Swift (`Sources/main.swift`), compiled directly with `swiftc` — no Xcode project, no dependencies, menu-bar only (no Dock icon).
 
 ## Troubleshooting
 
-- **"No displays found"** — make sure BetterDisplay.app is installed in `/Applications` and running.
-- **Power cycle does nothing** — your monitor may not implement VCP `0xD6`. Check with `BetterDisplay get -name=<name> -ddcCapabilities`. Some monitors only blank the backlight instead of truly cutting power; for those, the physical power button or an inline USB-C power switch remains the fallback.
-- **Monitor connected through a hub/adapter** — DDC usually still passes through, but if all commands fail, try a direct connection.
+- **"Unsupported system"** — the native DDC path requires Apple Silicon. On Intel Macs, use a DDC tool like [ddcctl](https://github.com/kfix/ddcctl) instead.
+- **Power cycle does nothing** — your monitor may not implement VCP `0xD6`. Some monitors only blank the backlight instead of truly cutting power; for those, the physical power button or an inline USB-C power switch remains the fallback.
+- **Monitor connected through a hub/adapter** — DDC usually still passes through (the original problem monitor sits behind a DP→HDMI converter and works fine), but if all commands fail, try a direct connection.
 
 ## License
 
