@@ -61,6 +61,12 @@ Click the display-with-refresh-arrow icon in the menu bar:
 
 The display list is rebuilt every time the menu opens, so newly connected monitors appear automatically.
 
+The menu is localized: it shows **Simplified Chinese** when your system language is Chinese, and English otherwise. To preview the Chinese menu without changing your system language:
+
+```sh
+open -n ~/Applications/MonitorRefresh.app --args -AppleLanguages '(zh-Hans)'
+```
+
 ## Command line
 
 The app binary doubles as a CLI — handy for Raycast/Alfred scripts, `ssh`, or cron:

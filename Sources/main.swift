@@ -1,6 +1,22 @@
 import Cocoa
 import IOKit
 
+// MARK: - Localization
+//
+// The menu UI follows the system language: Simplified Chinese when the user's
+// preferred language is Chinese, English otherwise. (The --list / --power-cycle
+// CLI output stays English so scripts parse consistently.)
+enum L {
+    // Read the user's raw preferred-language order from the global domain. This is not
+    // filtered by the app's bundled localizations (there are none — the app is a single
+    // binary), and it honors a `-AppleLanguages (zh-Hans)` launch override.
+    static let isZH: Bool = {
+        let langs = UserDefaults.standard.array(forKey: "AppleLanguages") as? [String]
+        return (langs?.first ?? Locale.preferredLanguages.first ?? "en").lowercased().hasPrefix("zh")
+    }()
+    static func t(_ en: String, _ zh: String) -> String { isZH ? zh : en }
+}
+
 // MARK: - Native DDC over IOAVService (Apple Silicon)
 //
 // Talks DDC/CI directly to external displays through the private IOAVService IOKit API —
@@ -160,7 +176,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = makeStatusIcon()
-        statusItem.button?.toolTip = "Monitor Refresh — revive a stuck monitor without replugging cables"
+        statusItem.button?.toolTip = L.t("Monitor Refresh — revive a stuck monitor without replugging cables",
+                                         "Monitor Refresh — 无需拔插线缆即可唤醒卡住的显示器")
         menu.delegate = self
         statusItem.menu = menu
     }
@@ -169,18 +186,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
         if running {
-            menu.addItem(withTitle: "Working…", action: nil, keyEquivalent: "")
+            menu.addItem(withTitle: L.t("Working…", "处理中…"), action: nil, keyEquivalent: "")
             menu.addItem(.separator())
         }
         displays = NativeDDC.externalDisplays()
         if displays.isEmpty {
             let hint = NativeDDC.available
-                ? "No external displays found"
-                : "Unsupported system (Apple Silicon required)"
+                ? L.t("No external displays found", "未找到外接显示器")
+                : L.t("Unsupported system (Apple Silicon required)", "系统不支持（需要 Apple Silicon）")
             menu.addItem(withTitle: hint, action: nil, keyEquivalent: "")
         }
         for (index, display) in displays.enumerated() {
-            let item = NSMenuItem(title: "Power Cycle “\(display.name)”",
+            let item = NSMenuItem(title: L.t("Power Cycle “\(display.name)”", "电源循环 “\(display.name)”"),
                                   action: #selector(powerCycle(_:)), keyEquivalent: "")
             item.target = self
             item.tag = index
@@ -188,13 +205,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
-        let sleepItem = NSMenuItem(title: "Sleep & Wake All Displays",
+        let sleepItem = NSMenuItem(title: L.t("Sleep & Wake All Displays", "休眠并唤醒所有显示器"),
                                    action: #selector(sleepAll), keyEquivalent: "")
         sleepItem.target = self
         sleepItem.isEnabled = !running
         menu.addItem(sleepItem)
         menu.addItem(.separator())
-        let quit = NSMenuItem(title: "Quit Monitor Refresh",
+        let quit = NSMenuItem(title: L.t("Quit Monitor Refresh", "退出 Monitor Refresh"),
                               action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.target = NSApp
         menu.addItem(quit)

@@ -61,6 +61,12 @@ osascript -e 'tell application "System Events" to make new login item at end wit
 
 每次打开菜单都会重新枚举显示器，新接入的显示器会自动出现。
 
+菜单支持本地化：当系统语言为中文时显示**简体中文**，否则显示英文。若想在不更改系统语言的情况下预览中文菜单：
+
+```sh
+open -n ~/Applications/MonitorRefresh.app --args -AppleLanguages '(zh-Hans)'
+```
+
 ## 命令行
 
 应用二进制本身就是一个 CLI——适合配合 Raycast/Alfred 脚本、`ssh` 或 cron 使用：
