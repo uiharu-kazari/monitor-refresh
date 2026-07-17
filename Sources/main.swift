@@ -100,8 +100,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         process.waitUntilExit()
         let output = String(data: data, encoding: .utf8) ?? ""
         var names: [String] = []
+        var deviceType = ""
         for line in output.split(separator: "\n") {
-            if let range = line.range(of: "\"name\" : \"") {
+            if let range = line.range(of: "\"deviceType\" : \"") {
+                let rest = line[range.upperBound...]
+                if let end = rest.firstIndex(of: "\"") { deviceType = String(rest[..<end]) }
+            }
+            if let range = line.range(of: "\"name\" : \""), deviceType == "Display" {
                 let rest = line[range.upperBound...]
                 if let end = rest.firstIndex(of: "\"") {
                     let name = String(rest[..<end])

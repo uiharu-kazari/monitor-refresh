@@ -45,6 +45,19 @@ Click the display icon in the menu bar:
 
 The display list is rebuilt every time the menu opens, so newly connected monitors appear automatically.
 
+## Just want the shell script?
+
+If you don't need the menu bar app, everything the app does is also available as a standalone script: [`scripts/monitor-refresh.sh`](scripts/monitor-refresh.sh). It only needs zsh and BetterDisplay — no compiling.
+
+```sh
+./scripts/monitor-refresh.sh --list             # list your connected monitor names
+./scripts/monitor-refresh.sh "LINK"             # DDC power-cycle that monitor (the main fix)
+./scripts/monitor-refresh.sh "LINK" --reconnect # software unplug/replug instead
+./scripts/monitor-refresh.sh --hard             # sleep all displays 5s, then wake
+```
+
+Use `--list` first to find your monitor's exact name, then pass that name to power-cycle it. The power-cycle sends DDC off, waits 6 seconds, and sends DDC on — the monitor blanks briefly and comes back with its internal controller reset. Handy for keyboard-launcher tools (Raycast, Alfred), `ssh`, or cron.
+
 ## How it works
 
 - Monitor enumeration and DDC commands go through the BetterDisplay CLI (`BetterDisplay get -identifiers`, `BetterDisplay set -name=... -ddc -vcp=powerMode -value=4/1`).
@@ -109,6 +122,19 @@ osascript -e 'tell application "System Events" to make new login item at end wit
 - 修复执行期间，图标会变成沙漏。
 
 每次打开菜单都会重新枚举显示器，新接入的显示器会自动出现。
+
+## 只想用 shell 脚本？
+
+如果不需要菜单栏应用，应用的全部功能也提供了独立脚本版本：[`scripts/monitor-refresh.sh`](scripts/monitor-refresh.sh)。只依赖 zsh 和 BetterDisplay，无需编译。
+
+```sh
+./scripts/monitor-refresh.sh --list             # 列出已连接的显示器名称
+./scripts/monitor-refresh.sh "LINK"             # 对该显示器执行 DDC 电源循环（主要修复手段）
+./scripts/monitor-refresh.sh "LINK" --reconnect # 改用软件层面的断开重连
+./scripts/monitor-refresh.sh --hard             # 所有显示器休眠 5 秒后唤醒
+```
+
+先用 `--list` 查到显示器的准确名称，再把名称作为参数执行电源循环。电源循环会发送 DDC 关机指令、等待 6 秒、再发送开机指令——显示器短暂黑屏后，内部控制器即被复位。适合配合快捷启动工具（Raycast、Alfred）、`ssh` 或 cron 使用。
 
 ## 工作原理
 
