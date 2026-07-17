@@ -3,6 +3,29 @@ import Cocoa
 // Path to the BetterDisplay CLI (the app binary doubles as its CLI).
 let bdPath = "/Applications/BetterDisplay.app/Contents/MacOS/BetterDisplay"
 
+// Menu bar icon: a display with a refresh arrow on its screen (no stock SF Symbol
+// combines the two, so it is composited from "display" + "arrow.clockwise").
+func makeStatusIcon() -> NSImage {
+    let size = NSSize(width: 18, height: 18)
+    let image = NSImage(size: size, flipped: false) { rect in
+        guard let display = NSImage(systemSymbolName: "display", accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 16, weight: .regular)),
+              let arrow = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: nil)?
+                .withSymbolConfiguration(.init(pointSize: 8, weight: .heavy))
+        else { return false }
+        display.draw(in: rect)
+        let arrowSize = arrow.size
+        // Center the arrow on the display glyph's screen area (upper part of the glyph).
+        let origin = NSPoint(x: rect.midX - arrowSize.width / 2,
+                             y: rect.midY - arrowSize.height / 2 + 2)
+        arrow.draw(at: origin, from: .zero, operation: .sourceOver, fraction: 1)
+        return true
+    }
+    image.isTemplate = true
+    image.accessibilityDescription = "Monitor Refresh"
+    return image
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItem: NSStatusItem!
     let menu = NSMenu()
@@ -10,8 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "display",
-                                           accessibilityDescription: "Monitor Refresh")
+        statusItem.button?.image = makeStatusIcon()
         statusItem.button?.toolTip = "Monitor Refresh — revive a stuck monitor without replugging cables"
         menu.delegate = self
         statusItem.menu = menu
@@ -129,15 +151,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             DispatchQueue.main.async {
                 self.running = false
                 self.statusItem.button?.appearsDisabled = false
-                self.statusItem.button?.image = NSImage(systemSymbolName: "display",
-                                                        accessibilityDescription: "Monitor Refresh")
+                self.statusItem.button?.image = makeStatusIcon()
             }
         }
         do { try process.run() } catch {
             running = false
             statusItem.button?.appearsDisabled = false
-            statusItem.button?.image = NSImage(systemSymbolName: "display",
-                                               accessibilityDescription: "Monitor Refresh")
+            statusItem.button?.image = makeStatusIcon()
         }
     }
 }
